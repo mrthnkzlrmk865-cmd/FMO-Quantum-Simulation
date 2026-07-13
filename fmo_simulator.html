@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FMO Lab — Sınır Moleküler Orbital Simülatörü</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0E14;
+    --bg-2:#0D131B;
+    --panel:#111820;
+    --panel-2:#161E28;
+    --border:#232E3B;
+    --border-soft:#1A232D;
+    --text:#E7EDF3;
+    --text-dim:#8394A5;
+    --text-faint:#57687C;
+    --green:#4AF7A0;
+    --amber:#FFB454;
+    --red:#FF5C7A;
+    --blue:#5CA8FF;
+    --violet:#B98CFF;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+    --disp:'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden;}
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+  .app{
+    display:grid;
+    grid-template-columns: 1fr 400px;
+    grid-template-rows: 62px 1fr;
+    height:100vh;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(74,247,160,0.05), transparent 55%),
+      radial-gradient(ellipse at 100% 100%, rgba(92,168,255,0.06), transparent 55%),
+      var(--bg);
+  }
+
+  header{
+    grid-column: 1 / 3;
+    display:flex; align-items:center; gap:18px;
+    padding:0 20px;
+    border-bottom:1px solid var(--border-soft);
+    background:linear-gradient(180deg, var(--panel), var(--bg-2));
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);}
+  .brand h1{font-family:var(--disp); font-size:16px; font-weight:600; margin:0; letter-spacing:0.2px;}
+  .brand span{color:var(--text-faint); font-size:11px; font-family:var(--mono); display:block;}
+  .hdr-controls{display:flex; align-items:center; gap:14px; margin-left:auto; flex-wrap:wrap;}
+  .field-group{display:flex; flex-direction:column; gap:3px;}
+  .field-group label{font-size:10px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-faint); font-family:var(--mono);}
+  select{
+    background:var(--panel-2); color:var(--text); border:1px solid var(--border);
+    border-radius:6px; padding:6px 10px; font-family:var(--sans); font-size:13px; font-weight:500;
+    outline:none; cursor:pointer; min-width:190px;
+  }
+  select:focus{border-color:var(--green);}
+
+  #viewport{position:relative; overflow:hidden; background:transparent;}
+  #canvasHolder{position:absolute; inset:0;}
+  .overlay-panel{
+    position:absolute; background:rgba(17,24,32,0.82); backdrop-filter:blur(6px);
+    border:1px solid var(--border); border-radius:10px; padding:12px 14px;
+  }
+  #fieldPanel{top:14px; left:14px; width:300px;}
+  #fieldPanel .row{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+  #fieldPanel label{font-size:11px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-dim); font-family:var(--mono);}
+  #fieldVal{font-family:var(--mono); font-size:13px; color:var(--amber); font-weight:600;}
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:4px; border-radius:2px;
+    background:linear-gradient(90deg, var(--blue), var(--border), var(--red));
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--text); border:2px solid var(--bg); cursor:pointer; box-shadow:0 0 6px rgba(255,255,255,0.5);
+  }
+  .subrange{width:100%; margin-top:2px;}
+  .hint{font-size:10.5px; color:var(--text-faint); margin-top:6px; line-height:1.4;}
+
+  #viewControls{bottom:14px; left:14px; display:flex; gap:8px;}
+  .icon-btn{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
+    border-radius:7px; padding:7px 11px; font-size:11px; font-family:var(--mono); cursor:pointer;
+    transition:all .15s;
+  }
+  .icon-btn:hover{color:var(--text); border-color:var(--green);}
+  .icon-btn.active{color:var(--green); border-color:var(--green); background:rgba(74,247,160,0.08);}
+
+  #legend{bottom:14px; right:14px; width:200px;}
+  #legend h3{margin:0 0 8px 0; font-size:10px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-faint); font-family:var(--mono); font-weight:600;}
+  .leg-row{display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-dim); margin-bottom:5px;}
+  .swatch{width:11px; height:11px; border-radius:3px; flex-shrink:0;}
+
+  #sidebar{
+    border-left:1px solid var(--border-soft);
+    background:var(--panel);
+    overflow-y:auto;
+    display:flex; flex-direction:column;
+  }
+  .sec{border-bottom:1px solid var(--border-soft); padding:16px 18px;}
+  .sec-title{font-family:var(--disp); font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin:0 0 12px 0; display:flex; align-items:center; gap:8px;}
+  .sec-title::before{content:''; width:3px; height:12px; background:var(--green); border-radius:2px; display:inline-block;}
+
+  #diagramWrap{display:flex; justify-content:center;}
+  #energyDiagram{width:100%; height:340px;}
+  .level-line{cursor:pointer;}
+  .level-label{font-family:var(--mono); font-size:9px; fill:var(--text-faint);}
+  .level-energy{font-family:var(--mono); font-size:8.5px;}
+
+  #moList{display:flex; flex-direction:column; gap:5px; max-height:210px; overflow-y:auto; padding-right:2px;}
+  .mo-item{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:7px;
+    padding:8px 10px; cursor:pointer; transition:all .12s;
+  }
+  .mo-item:hover{border-color:var(--text-faint);}
+  .mo-item.selected{border-color:var(--violet); background:rgba(185,140,255,0.08); box-shadow:0 0 0 1px var(--violet) inset;}
+  .mo-item .mo-name{font-family:var(--mono); font-size:12px; font-weight:600;}
+  .mo-item .mo-tag{font-size:9px; font-family:var(--mono); padding:2px 6px; border-radius:4px; letter-spacing:0.4px;}
+  .tag-homo{background:rgba(74,247,160,0.15); color:var(--green);}
+  .tag-lumo{background:rgba(255,180,84,0.15); color:var(--amber);}
+  .tag-occ{background:rgba(140,160,180,0.12); color:var(--text-dim);}
+  .tag-virt{background:rgba(140,160,180,0.08); color:var(--text-faint);}
+  .mo-item .mo-e{font-family:var(--mono); font-size:11px; color:var(--text-dim);}
+
+  #analysisGrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .stat{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px;}
+  .stat .k{font-size:9.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-faint); font-family:var(--mono); margin-bottom:5px;}
+  .stat .v{font-family:var(--mono); font-size:16px; font-weight:600; color:var(--text);}
+  .stat .u{font-size:10px; color:var(--text-faint); margin-left:3px;}
+  .stat.accent-g .v{color:var(--green);}
+  .stat.accent-a .v{color:var(--amber);}
+  .stat.accent-v .v{color:var(--violet);}
+  .stat.wide{grid-column:1/3;}
+
+  #modelNote{font-size:10.5px; line-height:1.55; color:var(--text-faint); background:var(--bg-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px;}
+  #modelNote b{color:var(--text-dim);}
+  code{font-family:var(--mono); background:var(--bg-2); padding:1px 5px; border-radius:4px; color:var(--text-dim); font-size:10.5px;}
+
+  @media (max-width: 920px){
+    .app{grid-template-columns:1fr; grid-template-rows:62px 46vh 1fr;}
+    #sidebar{border-left:none; border-top:1px solid var(--border-soft);}
+    .hdr-controls{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <span class="dot"></span>
+      <div>
+        <h1>FMO Lab</h1>
+        <span>Sınır Moleküler Orbital Simülatörü — Hückel Yöntemi</span>
+      </div>
+    </div>
+    <div class="hdr-controls">
+      <div class="field-group">
+        <label>Molekül</label>
+        <select id="moleculeSelect">
+          <option value="ethylene">Etilen (C₂H₄)</option>
+          <option value="butadiene" selected>1,3-Bütadien (C₄H₆)</option>
+          <option value="hexatriene">1,3,5-Hekzatrien (C₆H₈)</option>
+          <option value="benzene">Benzen (C₆H₆)</option>
+          <option value="polyene">Doğrusal Polien (n atom)</option>
+        </select>
+      </div>
+      <div class="field-group" id="nGroup" style="display:none;">
+        <label>Zincir Uzunluğu — n = <span id="nVal">8</span></label>
+        <input type="range" id="nSlider" class="subrange" min="4" max="16" step="2" value="8" style="width:150px;">
+      </div>
+    </div>
+  </header>
+
+  <div id="viewport">
+    <div id="canvasHolder"></div>
+
+    <div class="overlay-panel" id="fieldPanel">
+      <div class="row">
+        <label>Dış Elektrik Alanı (Stark Etkisi)</label>
+        <span id="fieldVal">0.00 eV/Å</span>
+      </div>
+      <input type="range" id="fieldSlider" min="-3" max="3" step="0.02" value="0">
+      <div class="hint">Alan, Hamiltonian'ın köşegen elemanlarını <code>H<sub>ii</sub> = α + F·x<sub>i</sub></code> şeklinde tedirgin eder (birinci mertebe Stark yaklaşımı, x<sub>i</sub>: atomun alan yönündeki konumu, Å).</div>
+    </div>
+
+    <div class="overlay-panel" id="viewControls">
+      <button class="icon-btn" id="btnHomo">HOMO</button>
+      <button class="icon-btn" id="btnLumo">LUMO</button>
+      <button class="icon-btn" id="btnNone">Orbitalsiz</button>
+      <button class="icon-btn" id="btnSpin">↻ Döndür</button>
+      <button class="icon-btn" id="btnReset">⟲ Kamera</button>
+    </div>
+
+    <div class="overlay-panel" id="legend">
+      <h3>Gösterim</h3>
+      <div class="leg-row"><span class="swatch" style="background:#3a4759;"></span> Karbon (Cᵖᶻ merkezi)</div>
+      <div class="leg-row"><span class="swatch" style="background:#eef2f6;"></span> Hidrojen</div>
+      <div class="leg-row"><span class="swatch" style="background:linear-gradient(90deg,var(--red),var(--blue));"></span> Faz (+ / −) katsayısı</div>
+      <div class="leg-row"><span class="swatch" style="background:var(--green);"></span> Dolu MO (HOMO)</div>
+      <div class="leg-row"><span class="swatch" style="background:var(--amber);"></span> Boş MO (LUMO)</div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="sec">
+      <div class="sec-title">Enerji Diyagramı</div>
+      <div id="diagramWrap"><svg id="energyDiagram" viewBox="0 0 360 340"></svg></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Moleküler Orbitaller</div>
+      <div id="moList"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Analiz Paneli</div>
+      <div id="analysisGrid"></div>
+    </div>
+
+    <div class="sec" style="border-bottom:none;">
+      <div class="sec-title">Model Notları</div>
+      <div id="modelNote">
+        <b>Yöntem:</b> π-sistemi Hückel Moleküler Orbital (HMO) yaklaşımı ile tanımlanır; σ-iskeleti donmuş kabul edilir, çakışma matrisi <code>S = I</code> alınır.<br><br>
+        <b>Parametreler:</b> α = −11.2 eV (Coulomb integrali), β = −2.7 eV (rezonans integrali, yalnız komşu p<sub>z</sub> orbitalleri arasında).<br><br>
+        <b>Çözücü:</b> Simetrik <code>(H−EI)C=0</code> özdeğer problemi, tarayıcıda çalışan bir Jacobi döngüsel rotasyon algoritması ile diyagonalize edilir.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   1. LİNEER CEBİR ÇEKİRDEĞİ — Jacobi Özdeğer Algoritması
+   (Golub & Van Loan, klasik döngüsel Jacobi rotasyonu)
+   ============================================================ */
+
+function identity(n){
+  const m = [];
+  for(let i=0;i<n;i++){ m.push(new Array(n).fill(0)); m[i][i]=1; }
+  return m;
+}
+
+function jacobiEigen(matrix, maxIter=300, tol=1e-12){
+  const n = matrix.length;
+  const a = matrix.map(r=>r.slice());
+  const v = identity(n);
+
+  for(let iter=0; iter<maxIter; iter++){
+    // en büyük mutlak köşegen-dışı elemanı bul
+    let off=0, p=0, q=1;
+    for(let i=0;i<n;i++){
+      for(let j=i+1;j<n;j++){
+        if(Math.abs(a[i][j])>off){ off=Math.abs(a[i][j]); p=i; q=j; }
+      }
+    }
+    if(off<tol) break;
+
+    const app=a[p][p], aqq=a[q][q], apq=a[p][q];
+    let t;
+    if(Math.abs(apq) < 1e-300){
+      t = 0;
+    } else {
+      const theta = (aqq-app)/(2*apq);
+      const sign = theta>=0 ? 1 : -1;
+      t = sign/(Math.abs(theta)+Math.sqrt(theta*theta+1));
+    }
+    const c = 1/Math.sqrt(t*t+1);
+    const s = t*c;
+
+    for(let k=0;k<n;k++){
+      if(k!==p && k!==q){
+        const akp=a[k][p], akq=a[k][q];
+        a[k][p]=c*akp - s*akq; a[p][k]=a[k][p];
+        a[k][q]=s*akp + c*akq; a[q][k]=a[k][q];
+      }
+    }
+    a[p][p]=app - t*apq;
+    a[q][q]=aqq + t*apq;
+    a[p][q]=0; a[q][p]=0;
+
+    for(let k=0;k<n;k++){
+      const vkp=v[k][p], vkq=v[k][q];
+      v[k][p]=c*vkp - s*vkq;
+      v[k][q]=s*vkp + c*vkq;
+    }
+  }
+
+  const values = a.map((row,i)=>row[i]);
+  const idx = values.map((_,i)=>i).sort((i,j)=>values[i]-values[j]);
+  const sortedValues = idx.map(i=>values[i]);
+  // sortedVectors[atomIndex][modeIndex]
+  const sortedVectors = [];
+  for(let k=0;k<n;k++){
+    sortedVectors.push(idx.map(i=>v[k][i]));
+  }
+  // işaret kuralı: her özvektörün en büyük |bileşen|'i pozitif olsun (görsel tutarlılık)
+  for(let m=0;m<n;m++){
+    let maxAbs=0, maxIdx=0;
+    for(let k=0;k<n;k++){ if(Math.abs(sortedVectors[k][m])>maxAbs){maxAbs=Math.abs(sortedVectors[k][m]); maxIdx=k;} }
+    if(sortedVectors[maxIdx][m] < 0){
+      for(let k=0;k<n;k++) sortedVectors[k][m] *= -1;
+    }
+  }
+  return {values: sortedValues, vectors: sortedVectors};
+}
+
+/* ============================================================
+   2. MOLEKÜL GEOMETRİSİ ÜRETİCİLERİ (2D iskelet, z=0 düzlemi)
+   ============================================================ */
+
+function rotate2D(v, angleDeg){
+  const a = angleDeg*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [v[0]*c - v[1]*s, v[0]*s + v[1]*c];
+}
+function norm2(v){ const l=Math.hypot(v[0],v[1]); return l<1e-9?[0,0]:[v[0]/l, v[1]/l]; }
+
+function buildChainCarbons(N){
+  const d=1.4;
+  const pos=[[0,0]];
+  for(let i=1;i<N;i++){
+    const angle = (i%2===1) ? 30 : -30;
+    const prev=pos[i-1];
+    pos.push([prev[0]+d*Math.cos(angle*Math.PI/180), prev[1]+d*Math.sin(angle*Math.PI/180)]);
+  }
+  const cx=pos.reduce((s,p)=>s+p[0],0)/N, cy=pos.reduce((s,p)=>s+p[1],0)/N;
+  return pos.map(p=>[p[0]-cx, p[1]-cy]);
+}
+
+function buildRingCarbons(N){
+  const R = 1.4/(2*Math.sin(Math.PI/N));
+  const pos=[];
+  for(let i=0;i<N;i++){
+    const a = i*2*Math.PI/N + Math.PI/2;
+    pos.push([R*Math.cos(a), R*Math.sin(a)]);
+  }
+  return pos;
+}
+
+function buildBonds(N, cyclic){
+  const bonds=[];
+  for(let i=0;i<N-1;i++) bonds.push([i,i+1]);
+  if(cyclic) bonds.push([N-1,0]);
+  return bonds;
+}
+
+function buildHydrogens(carbons, bonds, N){
+  const neighbors = Array.from({length:N},()=>[]);
+  bonds.forEach(([i,j])=>{ neighbors[i].push(j); neighbors[j].push(i); });
+  const CH=1.09, hydrogens=[];
+  for(let i=0;i<N;i++){
+    const nb = neighbors[i];
+    if(nb.length===1){
+      const v = norm2([carbons[nb[0]][0]-carbons[i][0], carbons[nb[0]][1]-carbons[i][1]]);
+      [120,-120].forEach(ang=>{
+        const d = rotate2D(v,ang);
+        hydrogens.push([carbons[i][0]+CH*d[0], carbons[i][1]+CH*d[1]]);
+      });
+    } else if(nb.length===2){
+      const v1 = norm2([carbons[nb[0]][0]-carbons[i][0], carbons[nb[0]][1]-carbons[i][1]]);
+      const v2 = norm2([carbons[nb[1]][0]-carbons[i][0], carbons[nb[1]][1]-carbons[i][1]]);
+      const hd = norm2([-(v1[0]+v2[0]), -(v1[1]+v2[1])]);
+      hydrogens.push([carbons[i][0]+CH*hd[0], carbons[i][1]+CH*hd[1]]);
+    }
+  }
+  return hydrogens;
+}
+
+function buildMolecule(type, N){
+  let carbons, cyclic=false, label;
+  if(type==='ethylene'){ carbons=buildChainCarbons(2); label='Etilen (C₂H₄)'; }
+  else if(type==='butadiene'){ carbons=buildChainCarbons(4); label='1,3-Bütadien (C₄H₆)'; }
+  else if(type==='hexatriene'){ carbons=buildChainCarbons(6); label='1,3,5-Hekzatrien (C₆H₈)'; }
+  else if(type==='benzene'){ carbons=buildRingCarbons(6); cyclic=true; label='Benzen (C₆H₆)'; }
+  else { carbons=buildChainCarbons(N); label='Polien (C'+N+'H'+(N+2)+')'; }
+  const n = carbons.length;
+  const bonds = buildBonds(n, cyclic);
+  const hydrogens = buildHydrogens(carbons, bonds, n);
+  return {carbons, bonds, hydrogens, n, cyclic, label};
+}
+
+/* ============================================================
+   3. HÜCKEL HAMİLTONYENİ
+   ============================================================ */
+const ALPHA=-11.2, BETA=-2.7;
+
+function buildHamiltonian(mol, field){
+  const n = mol.n;
+  const H = Array.from({length:n},()=>new Array(n).fill(0));
+  for(let i=0;i<n;i++){
+    H[i][i] = ALPHA + field*mol.carbons[i][0]; // Stark terimi: alan x-ekseni boyunca
+  }
+  mol.bonds.forEach(([i,j])=>{ H[i][j]=BETA; H[j][i]=BETA; });
+  return H;
+}
+
+/* ============================================================
+   4. UYGULAMA DURUMU
+   ============================================================ */
+const state = {
+  moleculeType:'butadiene',
+  N:8,
+  field:0,
+  mol:null,
+  H:null,
+  eig:null,          // {values, vectors}
+  occupations:[],    // 0,1,2 per orbital
+  selectedMO:null,
+  displayMode:'homo', // homo | lumo | none
+  autoRotate:false
+};
+
+function recompute(){
+  state.mol = buildMolecule(state.moleculeType, state.N);
+  state.H = buildHamiltonian(state.mol, state.field);
+  state.eig = jacobiEigen(state.H);
+  const n = state.mol.n;
+  const electrons = n; // her karbon 1 π elektron katkısı (nötr alternant hidrokarbon)
+  const occ = new Array(n).fill(0);
+  let remaining = electrons;
+  for(let i=0;i<n && remaining>0;i++){
+    const put = Math.min(2, remaining);
+    occ[i]=put; remaining-=put;
+  }
+  state.occupations = occ;
+  let homo=-1, lumo=-1;
+  for(let i=0;i<n;i++){ if(occ[i]>0) homo=i; }
+  lumo = homo+1 < n ? homo+1 : -1;
+  state.homoIdx = homo;
+  state.lumoIdx = lumo;
+  if(state.selectedMO===null || state.selectedMO>=n){
+    state.selectedMO = state.displayMode==='lumo' && lumo>=0 ? lumo : homo;
+  }
+}
+
+/* ============================================================
+   5. THREE.JS SAHNESİ
+   ============================================================ */
+let scene, camera, renderer, controls;
+let moleculeGroup, orbitalGroup;
+
+function initThree(){
+  const holder = document.getElementById('canvasHolder');
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0A0E14, 0.018);
+
+  camera = new THREE.PerspectiveCamera(42, holder.clientWidth/holder.clientHeight, 0.1, 500);
+  camera.position.set(0, 6, 15);
+
+  renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(holder.clientWidth, holder.clientHeight);
+  holder.appendChild(renderer.domElement);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 4;
+  controls.maxDistance = 60;
+
+  scene.add(new THREE.AmbientLight(0x8899aa, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 0.9);
+  key.position.set(6,10,8);
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x5ca8ff, 0.4);
+  rim.position.set(-8,4,-6);
+  scene.add(rim);
+  const fill = new THREE.PointLight(0x4af7a0, 0.25, 40);
+  fill.position.set(0,-4,6);
+  scene.add(fill);
+
+  // zemin ızgarası (referans düzlemi)
+  const grid = new THREE.GridHelper(30, 30, 0x1c2733, 0x151d27);
+  grid.position.y = -2.6;
+  scene.add(grid);
+
+  moleculeGroup = new THREE.Group();
+  orbitalGroup = new THREE.Group();
+  scene.add(moleculeGroup);
+  scene.add(orbitalGroup);
+
+  window.addEventListener('resize', onResize);
+  animate();
+}
+
+function onResize(){
+  const holder = document.getElementById('canvasHolder');
+  camera.aspect = holder.clientWidth/holder.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(holder.clientWidth, holder.clientHeight);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  if(state.autoRotate) moleculeGroup.rotation.y += 0.0035, orbitalGroup.rotation.y += 0.0035;
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function clearGroup(g){
+  while(g.children.length){
+    const c = g.children.pop();
+    if(c.geometry) c.geometry.dispose();
+    if(c.material) c.material.dispose();
+  }
+}
+
+function to3D(p2){ return new THREE.Vector3(p2[0], 0, p2[1]); }
+
+function buildBondMesh(pA, pB, radius, color){
+  const dir = new THREE.Vector3().subVectors(pB,pA);
+  const len = dir.length();
+  const geo = new THREE.CylinderGeometry(radius, radius, len, 10);
+  const mat = new THREE.MeshStandardMaterial({color, roughness:0.55, metalness:0.15});
+  const mesh = new THREE.Mesh(geo, mat);
+  const mid = new THREE.Vector3().addVectors(pA,pB).multiplyScalar(0.5);
+  mesh.position.copy(mid);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+  return mesh;
+}
+
+function rebuildMoleculeMesh(){
+  clearGroup(moleculeGroup);
+  const mol = state.mol;
+  const carbonPts = mol.carbons.map(to3D);
+  const hydroPts = mol.hydrogens.map(to3D);
+
+  mol.bonds.forEach(([i,j])=>{
+    moleculeGroup.add(buildBondMesh(carbonPts[i], carbonPts[j], 0.09, 0x3d4a5c));
+  });
+
+  // C-H bağları: en yakın karbona bağla
+  hydroPts.forEach(hp=>{
+    let bestI=0, bestD=Infinity;
+    carbonPts.forEach((cp,i)=>{ const d=cp.distanceTo(hp); if(d<bestD){bestD=d; bestI=i;} });
+    moleculeGroup.add(buildBondMesh(carbonPts[bestI], hp, 0.055, 0x2c3745));
+  });
+
+  const carbonMat = new THREE.MeshStandardMaterial({color:0x3a4759, roughness:0.35, metalness:0.25});
+  carbonPts.forEach(p=>{
+    const geo = new THREE.SphereGeometry(0.34, 28, 20);
+    const m = new THREE.Mesh(geo, carbonMat.clone());
+    m.position.copy(p);
+    moleculeGroup.add(m);
+  });
+
+  const hMat = new THREE.MeshStandardMaterial({color:0xeef2f6, roughness:0.4, metalness:0.05});
+  hydroPts.forEach(p=>{
+    const geo = new THREE.SphereGeometry(0.19, 20, 16);
+    const m = new THREE.Mesh(geo, hMat.clone());
+    m.position.copy(p);
+    moleculeGroup.add(m);
+  });
+
+  // kamerayı moleküle göre otomatik uzaklaştır
+  const span = mol.carbons.reduce((mx,p)=>Math.max(mx, Math.hypot(p[0],p[1])), 1);
+  const dist = Math.max(9, span*2.6);
+  camera.position.set(0, dist*0.42, dist);
+  controls.target.set(0,0,0);
+  controls.update();
+}
+
+function rebuildOrbitalMesh(){
+  clearGroup(orbitalGroup);
+  if(state.displayMode==='none' || state.selectedMO===null) return;
+  const mol = state.mol;
+  const coeffs = mol.carbons.map((_,i)=>state.eig.vectors[i][state.selectedMO]);
+  const maxAbs = Math.max(...coeffs.map(Math.abs), 1e-6);
+
+  coeffs.forEach((c,i)=>{
+    const mag = Math.abs(c)/maxAbs;
+    if(mag < 0.05) return; // düğüm noktası — lob çizme
+    const R = 0.28 + 0.62*mag;
+    const H = 0.55 + 1.15*mag;
+    const pos = to3D(mol.carbons[i]);
+    const posColor = 0xff5c7a, negColor = 0x5ca8ff;
+    const topColor = c>=0 ? posColor : negColor;
+    const botColor = c>=0 ? negColor : posColor;
+
+    [[1,topColor],[-1,botColor]].forEach(([dir,color])=>{
+      const geo = new THREE.SphereGeometry(R, 20, 16);
+      geo.scale(1,1.55,1);
+      const mat = new THREE.MeshStandardMaterial({
+        color, transparent:true, opacity:0.62, roughness:0.3, metalness:0.1,
+        emissive:color, emissiveIntensity:0.35, depthWrite:false
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x, pos.y + dir*H*0.62, pos.z);
+      orbitalGroup.add(mesh);
+    });
+  });
+}
+
+/* ============================================================
+   6. ENERJİ DİYAGRAMI (SVG)
+   ============================================================ */
+function renderEnergyDiagram(){
+  const svg = document.getElementById('energyDiagram');
+  svg.innerHTML='';
+  const NS='http://www.w3.org/2000/svg';
+  const W=360, H=340, padTop=18, padBot=30;
+  const vals = state.eig.values;
+  const n = vals.length;
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const pad = (max-min)*0.12 + 0.4;
+  const yOf = e => padTop + (max+pad - e) / ((max-min)+2*pad) * (H-padTop-padBot);
+
+  // dejenere (yakın enerjili) seviyeleri grupla
+  const groups=[];
+  const used = new Array(n).fill(false);
+  for(let i=0;i<n;i++){
+    if(used[i]) continue;
+    const grp=[i]; used[i]=true;
+    for(let j=i+1;j<n;j++){
+      if(!used[j] && Math.abs(vals[j]-vals[i])<0.06){ grp.push(j); used[j]=true; }
+    }
+    groups.push(grp);
+  }
+
+  const lineW=46, gapX=14;
+  groups.forEach(grp=>{
+    const total = grp.length*lineW + (grp.length-1)*gapX;
+    const startX = W/2 - total/2;
+    grp.forEach((idx,k)=>{
+      const y = yOf(vals[idx]);
+      const x1 = startX + k*(lineW+gapX);
+      const x2 = x1+lineW;
+      const isHomo = idx===state.homoIdx;
+      const isLumo = idx===state.lumoIdx;
+      const occVal = state.occupations[idx];
+      let color = '#57687C';
+      if(isHomo) color='#4AF7A0';
+      else if(isLumo) color='#FFB454';
+      else if(occVal>0) color='#5c7089';
+
+      const line = document.createElementNS(NS,'line');
+      line.setAttribute('x1',x1); line.setAttribute('x2',x2);
+      line.setAttribute('y1',y); line.setAttribute('y2',y);
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', idx===state.selectedMO ? 3.4 : 2.2);
+      line.classList.add('level-line');
+      line.style.filter = (isHomo||isLumo) ? 'drop-shadow(0 0 4px '+color+')' : 'none';
+      line.addEventListener('click', ()=>{ state.selectedMO=idx; refreshVisuals(); });
+      svg.appendChild(line);
+
+      // elektronlar
+      if(occVal>=1){
+        const arrow = makeArrow(x1+lineW*0.38, y, true, color);
+        svg.appendChild(arrow);
+      }
+      if(occVal===2){
+        const arrow = makeArrow(x1+lineW*0.62, y, false, color);
+        svg.appendChild(arrow);
+      }
+
+      const label = document.createElementNS(NS,'text');
+      label.setAttribute('x', (x1+x2)/2);
+      label.setAttribute('y', y+16);
+      label.setAttribute('text-anchor','middle');
+      label.setAttribute('class','level-label');
+      label.textContent = 'ψ'+(idx+1);
+      svg.appendChild(label);
+    });
+  });
+
+  // HOMO-LUMO gap köprüsü
+  if(state.homoIdx>=0 && state.lumoIdx>=0){
+    const yH = yOf(vals[state.homoIdx]);
+    const yL = yOf(vals[state.lumoIdx]);
+    const xB = W-18;
+    const bracket = document.createElementNS(NS,'path');
+    bracket.setAttribute('d', `M ${xB-8} ${yH} H ${xB} V ${yL} H ${xB-8}`);
+    bracket.setAttribute('stroke','#B98CFF');
+    bracket.setAttribute('stroke-width','1.6');
+    bracket.setAttribute('fill','none');
+    bracket.setAttribute('opacity','0.85');
+    svg.appendChild(bracket);
+
+    const gapVal = vals[state.lumoIdx]-vals[state.homoIdx];
+    const gapText = document.createElementNS(NS,'text');
+    gapText.setAttribute('x', xB+6);
+    gapText.setAttribute('y', (yH+yL)/2+3);
+    gapText.setAttribute('class','level-energy');
+    gapText.setAttribute('fill','#B98CFF');
+    gapText.setAttribute('transform', `rotate(90 ${xB+6} ${(yH+yL)/2+3})`);
+    gapText.setAttribute('text-anchor','middle');
+    gapText.textContent = 'ΔE='+gapVal.toFixed(2)+' eV';
+    svg.appendChild(gapText);
+  }
+}
+
+function makeArrow(x,y,up,color){
+  const NS='http://www.w3.org/2000/svg';
+  const g = document.createElementNS(NS,'g');
+  const len=13;
+  const y1 = up ? y+len/2 : y-len/2;
+  const y2 = up ? y-len/2 : y+len/2;
+  const line = document.createElementNS(NS,'line');
+  line.setAttribute('x1',x); line.setAttribute('x2',x);
+  line.setAttribute('y1',y1); line.setAttribute('y2',y2);
+  line.setAttribute('stroke',color); line.setAttribute('stroke-width','1.8');
+  g.appendChild(line);
+  const head = document.createElementNS(NS,'path');
+  const hs = 3.2;
+  if(up){
+    head.setAttribute('d', `M ${x-hs} ${y2+hs*1.6} L ${x} ${y2} L ${x+hs} ${y2+hs*1.6} Z`);
+  } else {
+    head.setAttribute('d', `M ${x-hs} ${y2-hs*1.6} L ${x} ${y2} L ${x+hs} ${y2-hs*1.6} Z`);
+  }
+  head.setAttribute('fill',color);
+  g.appendChild(head);
+  return g;
+}
+
+/* ============================================================
+   7. MO LİSTESİ VE ANALİZ PANELİ
+   ============================================================ */
+function renderMOList(){
+  const wrap = document.getElementById('moList');
+  wrap.innerHTML='';
+  const n = state.eig.values.length;
+  for(let i=n-1;i>=0;i--){
+    const e = state.eig.values[i];
+    const occVal = state.occupations[i];
+    const div = document.createElement('div');
+    div.className = 'mo-item'+(i===state.selectedMO?' selected':'');
+    let tag='', tagCls='';
+    if(i===state.homoIdx){ tag='HOMO'; tagCls='tag-homo'; }
+    else if(i===state.lumoIdx){ tag='LUMO'; tagCls='tag-lumo'; }
+    else if(occVal>0){ tag='dolu'; tagCls='tag-occ'; }
+    else { tag='boş'; tagCls='tag-virt'; }
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="mo-name">ψ${i+1}</span>
+        <span class="mo-tag ${tagCls}">${tag}</span>
+      </div>
+      <span class="mo-e">${e.toFixed(3)} eV</span>`;
+    div.addEventListener('click', ()=>{ state.selectedMO=i; refreshVisuals(); });
+    wrap.appendChild(div);
+  }
+}
+
+function renderAnalysis(){
+  const grid = document.getElementById('analysisGrid');
+  const vals = state.eig.values;
+  const totalE = vals.reduce((s,e,i)=>s+e*state.occupations[i],0);
+  const eHomo = state.homoIdx>=0 ? vals[state.homoIdx] : null;
+  const eLumo = state.lumoIdx>=0 ? vals[state.lumoIdx] : null;
+  const gap = (eHomo!==null && eLumo!==null) ? (eLumo-eHomo) : null;
+  const hardness = gap!==null ? gap/2 : null;
+  const softness = hardness ? 1/hardness : null;
+  const electroneg = (eHomo!==null && eLumo!==null) ? -(eHomo+eLumo)/2 : null;
+
+  grid.innerHTML = `
+    <div class="stat wide">
+      <div class="k">Toplam π-Elektron Enerjisi</div>
+      <div class="v">${totalE.toFixed(3)}<span class="u">eV</span></div>
+    </div>
+    <div class="stat accent-g">
+      <div class="k">E(HOMO)</div>
+      <div class="v">${eHomo!==null?eHomo.toFixed(3):'—'}<span class="u">eV</span></div>
+    </div>
+    <div class="stat accent-a">
+      <div class="k">E(LUMO)</div>
+      <div class="v">${eLumo!==null?eLumo.toFixed(3):'—'}<span class="u">eV</span></div>
+    </div>
+    <div class="stat accent-v wide">
+      <div class="k">HOMO–LUMO Aralığı ΔE</div>
+      <div class="v">${gap!==null?gap.toFixed(3):'—'}<span class="u">eV</span></div>
+    </div>
+    <div class="stat">
+      <div class="k">Kimyasal Sertlik η</div>
+      <div class="v">${hardness!==null?hardness.toFixed(3):'—'}<span class="u">eV</span></div>
+    </div>
+    <div class="stat">
+      <div class="k">Kimyasal Yumuşaklık S</div>
+      <div class="v">${softness!==null?softness.toFixed(3):'—'}<span class="u">eV⁻¹</span></div>
+    </div>
+    <div class="stat wide">
+      <div class="k">Mulliken Elektronegatifliği χ</div>
+      <div class="v">${electroneg!==null?electroneg.toFixed(3):'—'}<span class="u">eV</span></div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   8. YENİLEME ORKESTRASYONU
+   ============================================================ */
+function refreshVisuals(){
+  rebuildOrbitalMesh();
+  renderEnergyDiagram();
+  renderMOList();
+  renderAnalysis();
+}
+
+function fullRebuild(){
+  recompute();
+  rebuildMoleculeMesh();
+  refreshVisuals();
+}
+
+/* ============================================================
+   9. UI OLAY BAĞLANTILARI
+   ============================================================ */
+document.getElementById('moleculeSelect').addEventListener('change', e=>{
+  state.moleculeType = e.target.value;
+  document.getElementById('nGroup').style.display = state.moleculeType==='polyene' ? 'flex' : 'none';
+  state.selectedMO = null;
+  fullRebuild();
+});
+
+document.getElementById('nSlider').addEventListener('input', e=>{
+  state.N = parseInt(e.target.value,10);
+  document.getElementById('nVal').textContent = state.N;
+  state.selectedMO = null;
+  fullRebuild();
+});
+
+document.getElementById('fieldSlider').addEventListener('input', e=>{
+  state.field = parseFloat(e.target.value);
+  document.getElementById('fieldVal').textContent = state.field.toFixed(2)+' eV/Å';
+  recompute();
+  refreshVisuals();
+});
+
+document.getElementById('btnHomo').addEventListener('click', ()=>{
+  state.displayMode='homo'; state.selectedMO=state.homoIdx;
+  setActiveBtn('btnHomo'); refreshVisuals();
+});
+document.getElementById('btnLumo').addEventListener('click', ()=>{
+  state.displayMode='lumo'; state.selectedMO=state.lumoIdx;
+  setActiveBtn('btnLumo'); refreshVisuals();
+});
+document.getElementById('btnNone').addEventListener('click', ()=>{
+  state.displayMode='none';
+  setActiveBtn('btnNone'); refreshVisuals();
+});
+document.getElementById('btnSpin').addEventListener('click', (e)=>{
+  state.autoRotate = !state.autoRotate;
+  e.target.classList.toggle('active', state.autoRotate);
+});
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  rebuildMoleculeMesh();
+});
+
+function setActiveBtn(id){
+  ['btnHomo','btnLumo','btnNone'].forEach(b=>{
+    document.getElementById(b).classList.toggle('active', b===id);
+  });
+}
+
+/* ============================================================
+   10. BAŞLAT
+   ============================================================ */
+initThree();
+setActiveBtn('btnHomo');
+fullRebuild();
+
+})();
+</script>
+</body>
+</html>
